@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	uploadpb "github/michaellimmm/sketch/uploadfiletogcs/generated"
+	uploadpb "github/michaellimmm/upload-file-server/generated"
 	"io"
 	"log"
 	"net"
@@ -21,6 +21,7 @@ import (
 
 const (
 	bucketName = "file-service-test"
+	publicHost = "https://storage.googleapis.com"
 )
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
 	}
 
 	// Start CPU profiling
-	cpuFile, err := os.Create("cpu-without-file.prof")
+	cpuFile, err := os.Create("cpu.prof")
 	if err != nil {
 		fmt.Printf("failed to create cpu.prof file, error: %+v\n", err)
 		return
@@ -40,7 +41,7 @@ func main() {
 	defer pprof.StopCPUProfile()
 
 	// Start memory profiling
-	memFile, err := os.Create("mem-without-file.prof")
+	memFile, err := os.Create("mem.prof")
 	if err != nil {
 		fmt.Printf("failed to create mem.prof file, error: %+v\n", err)
 		return
@@ -79,7 +80,7 @@ func main() {
 	<-ctx.Done()
 	g.GracefulStop()
 
-	fmt.Println("Bye...")
+	fmt.Println("Good Bye")
 }
 
 type FileServiceServer struct {
@@ -111,7 +112,8 @@ func (f *FileServiceServer) Upload(stream uploadpb.FileService_UploadServer) err
 	for {
 		req, err := stream.Recv()
 		if err == io.EOF {
-			return stream.SendAndClose(&uploadpb.FileUploadResponse{FileName: filename, Size: uint32(fileSize)})
+			url := fmt.Sprintf("%s/%s/%s", publicHost, bucketName, filename)
+			return stream.SendAndClose(&uploadpb.FileUploadResponse{Url: url})
 		}
 		if err != nil {
 			fmt.Printf("failed to receive file, err: %+v\n", err)

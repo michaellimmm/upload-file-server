@@ -25,4 +25,3 @@ go.work.sum
 .env
 
 .idea
-application_default_credentials.json

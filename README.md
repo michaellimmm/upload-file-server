@@ -1,3 +1,3 @@
-# Sketch
+# upload-file-server
 
-this is collection of my dumb dumb code
+Simple implementation of upload file server
