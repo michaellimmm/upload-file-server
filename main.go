@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	uploadpb "github/michaellimmm/upload-file-server/generated"
-	"io"
+	"github/michaellimmm/upload-file-server/server"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -58,7 +58,7 @@ func main() {
 		return
 	}
 
-	handler := NewFileServiceServer(storageClient)
+	handler := server.NewFileServiceServer(storageClient, http.DefaultClient)
 
 	g := grpc.NewServer()
 	reflection.Register(g)
@@ -81,58 +81,4 @@ func main() {
 	g.GracefulStop()
 
 	fmt.Println("Good Bye")
-}
-
-type FileServiceServer struct {
-	uploadpb.UnimplementedFileServiceServer
-	storageClient *storage.Client
-}
-
-func NewFileServiceServer(storageClient *storage.Client) *FileServiceServer {
-	return &FileServiceServer{
-		storageClient: storageClient,
-	}
-}
-
-func (f *FileServiceServer) Upload(stream uploadpb.FileService_UploadServer) error {
-	filename := ""
-	var fileSize int
-
-	ctx := stream.Context()
-
-	var storageWriter *storage.Writer
-	defer func() {
-		if storageWriter != nil {
-			if err := storageWriter.Close(); err != nil {
-				fmt.Printf("failed to close storageWriter, err: %+v\n", err)
-			}
-		}
-	}()
-
-	for {
-		req, err := stream.Recv()
-		if err == io.EOF {
-			url := fmt.Sprintf("%s/%s/%s", publicHost, bucketName, filename)
-			return stream.SendAndClose(&uploadpb.FileUploadResponse{Url: url})
-		}
-		if err != nil {
-			fmt.Printf("failed to receive file, err: %+v\n", err)
-			return err
-		}
-
-		if filename == "" {
-			filename = req.GetFileName()
-			storageWriter = f.storageClient.Bucket(bucketName).Object(filename).NewWriter(ctx)
-		}
-
-		chunk := req.GetChunk()
-
-		if storageWriter != nil {
-			if _, err := io.Copy(storageWriter, bytes.NewReader(chunk)); err != nil {
-				return err
-			}
-		}
-
-		fileSize += len(chunk)
-	}
 }
